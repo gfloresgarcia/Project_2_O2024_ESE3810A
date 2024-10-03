@@ -17,10 +17,13 @@ typedef struct {
 	int humidity;
 	double latitude;
 	double longitude;
+	bool isTherePeople;
 } sensors;
 
 void Task_Publisher(void *arg);
 bool Publish_Location(void);
+
+void evaluate_variables(int temperature, int humidity, bool people);
 
 void initial_Sensors(void);
 

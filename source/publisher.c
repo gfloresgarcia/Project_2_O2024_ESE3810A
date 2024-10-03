@@ -6,6 +6,7 @@
  */
 
 #include "publisher.h"
+#include "suscriber.h"
 #include "lwip/tcpip.h"
 #include "mqtt.h"
 
@@ -14,7 +15,7 @@ extern volatile bool connected;
 sensors testSensors;
 
 void initial_Sensors(void) {
-	testSensors.temperature = 17;
+	testSensors.temperature = 67;
 	testSensors.humidity = 36;
 	testSensors.latitude = 12.4672;
 	testSensors.longitude = 18.6823;
@@ -51,6 +52,26 @@ static void publish_variable(void *ctx)
 
     mqtt_publish(mqtt_client, topic_temperature, message_temperature, strlen(message_temperature), 1, 0, mqtt_message_published_cb, (void *)topic_temperature);
     mqtt_publish(mqtt_client, topic_humidity, message_humidity, strlen(message_humidity), 1, 0, mqtt_message_published_cb, (void *)topic_humidity);
+
+    //Call function to evaluate the variables
+    evaluate_variables(testSensors.temperature, testSensors.humidity, testSensors.isTherePeople);
+}
+
+void evaluate_variables(int temperature, int humidity, bool people){
+	static const char *topic_irrigation = "fire_Control_System/irrigation";
+	char message[10] = {0};
+	int length = 0;
+
+	if (temperature > 50 || humidity < 15) {
+		setIrrigation(true);
+		length = sprintf(message, "1");
+	}
+	else {
+		setIrrigation(false);
+		length = sprintf(message, "0");
+	}
+
+	mqtt_publish(mqtt_client, topic_irrigation, message, length, 1, 0, mqtt_message_published_cb, (void *)topic_irrigation);
 }
 
 //Function to publish location GPS with retain true
