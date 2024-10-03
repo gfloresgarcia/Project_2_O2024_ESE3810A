@@ -37,6 +37,9 @@
 #include "fsl_phyksz8081.h"
 #include "fsl_enet_mdio.h"
 #include "fsl_device_registers.h"
+
+#include "publisher.h"
+#include "suscriber.h"
 /*******************************************************************************
  * Definitions
  ******************************************************************************/
@@ -47,7 +50,7 @@
 #ifndef configMAC_ADDR
 #define configMAC_ADDR                     \
     {                                      \
-        0x02, 0x12, 0x13, 0x10, 0x15, 0x11 \
+        0x02, 0x12, 0x13, 0x10, 0x15, 0x19 \
     }
 #endif
 
@@ -64,8 +67,12 @@
 #define EXAMPLE_CLOCK_FREQ CLOCK_GetFreq(kCLOCK_CoreSysClk)
 
 /* GPIO pin configuration. */
-#define BOARD_LED_GPIO       BOARD_LED_RED_GPIO
-#define BOARD_LED_GPIO_PIN   BOARD_LED_RED_GPIO_PIN
+#define BOARD_LED1_GPIO       BOARD_LED_RED_GPIO
+#define BOARD_LED1_GPIO_PIN   BOARD_LED_RED_GPIO_PIN
+#define BOARD_LED2_GPIO       BOARD_LED_GREEN_GPIO
+#define BOARD_LED2_GPIO_PIN   BOARD_LED_GREEN_GPIO_PIN
+#define BOARD_LED3_GPIO       BOARD_LED_BLUE_GPIO
+#define BOARD_LED3_GPIO_PIN   BOARD_LED_BLUE_GPIO_PIN
 #define BOARD_SW_GPIO        BOARD_SW3_GPIO
 #define BOARD_SW_GPIO_PIN    BOARD_SW3_GPIO_PIN
 #define BOARD_SW_PORT        BOARD_SW3_PORT
@@ -78,10 +85,7 @@
 #define EXAMPLE_NETIF_INIT_FN ethernetif0_init
 #endif /* EXAMPLE_NETIF_INIT_FN */
 
-/*! @brief MQTT server host name or IP address. */
 #define EXAMPLE_MQTT_SERVER_HOST "broker.hivemq.com"
-
-/*! @brief MQTT server port number. */
 #define EXAMPLE_MQTT_SERVER_PORT 1883
 
 /*! @brief Stack size of the temporary lwIP initialization thread. */
@@ -109,11 +113,15 @@ static void connect_to_mqtt(void *ctx);
 static mdio_handle_t mdioHandle = {.ops = &EXAMPLE_MDIO_OPS};
 static phy_handle_t phyHandle   = {.phyAddr = EXAMPLE_PHY_ADDRESS, .mdioHandle = &mdioHandle, .ops = &EXAMPLE_PHY_OPS};
 
+extern sensors testSensors;
+
 /*! @brief MQTT client data. */
-static mqtt_client_t *mqtt_client;
+mqtt_client_t *mqtt_client;
 
 /*! @brief MQTT client ID string. */
 static char client_id[40];
+static char user[40];
+static char password[40];
 
 /*! @brief MQTT client information. */
 static const struct mqtt_connect_client_info_t mqtt_client_info = {
@@ -134,78 +142,23 @@ static const struct mqtt_connect_client_info_t mqtt_client_info = {
 static ip_addr_t mqtt_addr;
 
 /*! @brief Indicates connection to MQTT broker. */
-static volatile bool connected = false;
+volatile bool connected = false;
 
 /*******************************************************************************
  * Code
  ******************************************************************************/
 
 /*!
- * @brief Called when subscription request finishes.
- */
-static void mqtt_topic_subscribed_cb(void *arg, err_t err)
-{
-    const char *topic = (const char *)arg;
-
-    if (err == ERR_OK)
-    {
-        PRINTF("Subscribed to the topic \"%s\".\r\n", topic);
-    }
-    else
-    {
-        PRINTF("Failed to subscribe to the topic \"%s\": %d.\r\n", topic, err);
-    }
-}
-
-/*!
- * @brief Called when there is a message on a subscribed topic.
- */
-static void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
-{
-    LWIP_UNUSED_ARG(arg);
-
-    PRINTF("Received %u bytes from the topic \"%s\": \"", tot_len, topic);
-}
-
-/*!
- * @brief Called when recieved incoming published message fragment.
- */
-static void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
-{
-    int i;
-
-    LWIP_UNUSED_ARG(arg);
-
-    for (i = 0; i < len; i++)
-    {
-        if (isprint(data[i]))
-        {
-            PRINTF("%c", (char)data[i]);
-        }
-        else
-        {
-            PRINTF("\\x%02x", data[i]);
-        }
-    }
-
-    if (flags & MQTT_DATA_FLAG_LAST)
-    {
-        PRINTF("\"\r\n");
-    }
-}
-
-/*!
  * @brief Subscribe to MQTT topics.
  */
 static void mqtt_subscribe_topics(mqtt_client_t *client)
 {
-    static const char *topics[] = {"lwip_topic/#", "lwip_other/#"};
-    int qos[]                   = {0, 1};
+    static const char *topics[] = {"fire_Control_System/alarm", "fire_Control_System/irrigation"};
+    int qos[]                   = {1, 1};
     err_t err;
     int i;
 
-    mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb,
-                            LWIP_CONST_CAST(void *, &mqtt_client_info));
+    mqtt_set_inpub_callback(client, mqtt_incoming_publish_cb, mqtt_incoming_data_cb, LWIP_CONST_CAST(void *, &mqtt_client_info));
 
     for (i = 0; i < ARRAY_SIZE(topics); i++)
     {
@@ -277,41 +230,10 @@ static void connect_to_mqtt(void *ctx)
 
     PRINTF("Connecting to MQTT broker at %s...\r\n", ipaddr_ntoa(&mqtt_addr));
 
-    mqtt_client_connect(mqtt_client, &mqtt_addr, EXAMPLE_MQTT_SERVER_PORT, mqtt_connection_cb,
-                        LWIP_CONST_CAST(void *, &mqtt_client_info), &mqtt_client_info);
+    mqtt_client_connect(mqtt_client, &mqtt_addr, EXAMPLE_MQTT_SERVER_PORT, mqtt_connection_cb, LWIP_CONST_CAST(void *, &mqtt_client_info), &mqtt_client_info);
 }
 
-/*!
- * @brief Called when publish request finishes.
- */
-static void mqtt_message_published_cb(void *arg, err_t err)
-{
-    const char *topic = (const char *)arg;
 
-    if (err == ERR_OK)
-    {
-        PRINTF("Published to the topic \"%s\".\r\n", topic);
-    }
-    else
-    {
-        PRINTF("Failed to publish to the topic \"%s\": %d.\r\n", topic, err);
-    }
-}
-
-/*!
- * @brief Publishes a message. To be called on tcpip_thread.
- */
-static void publish_message(void *ctx)
-{
-    static const char *topic   = "lwip_topic/100";
-    static const char *message = "message from board";
-
-    LWIP_UNUSED_ARG(ctx);
-
-    PRINTF("Going to publish to the topic \"%s\"...\r\n", topic);
-
-    mqtt_publish(mqtt_client, topic, message, strlen(message), 1, 0, mqtt_message_published_cb, (void *)topic);
-}
 
 /*!
  * @brief Application thread.
@@ -377,20 +299,23 @@ static void app_thread(void *arg)
         PRINTF("Failed to obtain IP address: %d.\r\n", err);
     }
 
-    /* Publish some messages */
-    for (i = 0; i < 5;)
-    {
-        if (connected)
-        {
-            err = tcpip_callback(publish_message, NULL);
-            if (err != ERR_OK)
-            {
-                PRINTF("Failed to invoke publishing of a message on the tcpip_thread: %d.\r\n", err);
-            }
-            i++;
-        }
+    while (!connected) {
+    	PRINTF("Connecting ...\r\n");
+    	sys_msleep(1000U);
+    }
 
-        sys_msleep(1000U);
+    initial_Sensors();
+
+    if (connected) {
+    	if (Publish_Location()) {
+			if (sys_thread_new("Task Publisher", Task_Publisher, NULL, APP_THREAD_STACKSIZE, APP_THREAD_PRIO) == NULL)
+			{
+				LWIP_ASSERT("app_thread(): Task creation failed.", 0);
+			}
+    	}
+    	else {
+    		PRINTF("Error to publish location GPS ...\r\n");
+    	}
     }
 
     vTaskDelete(NULL);
@@ -427,6 +352,14 @@ static void stack_init(void *arg)
         .phyHandle  = &phyHandle,
         .macAddress = configMAC_ADDR,
     };
+
+    LED_RED_INIT(0U);
+    LED_GREEN_INIT(0U);
+    LED_BLUE_INIT(0U);
+
+    LED_RED_OFF();
+    LED_GREEN_OFF();
+    LED_BLUE_OFF();
 
     LWIP_UNUSED_ARG(arg);
     generate_client_id();
@@ -486,6 +419,7 @@ int main(void)
     {
         LWIP_ASSERT("main(): Task creation failed.", 0);
     }
+
 
     vTaskStartScheduler();
 
