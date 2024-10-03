@@ -16,4 +16,5 @@ void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags);
 
 void setAlarm(bool state);
 void setIrrigation(bool state);
+
 #endif /* SUSCRIBER_H_ */

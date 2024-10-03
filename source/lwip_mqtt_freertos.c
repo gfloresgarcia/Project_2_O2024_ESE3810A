@@ -150,12 +150,28 @@ volatile bool connected = false;
 
 void BOARD_SW_IRQ_HANDLER(void)
 {
+	static bool flag = true;
+
     /* Clear external interrupt flag. */
     GPIO_PortClearInterruptFlags(BOARD_SW_GPIO, 1U << BOARD_SW_GPIO_PIN);
 
     /* Increment temperature value */
-    testSensors.temperature += 5;
-    if (testSensors.temperature > 80) testSensors.temperature = 20;
+
+    if (flag) {
+    	testSensors.temperature += 5;
+    	if (testSensors.temperature > 80) {
+    		testSensors.temperature = 20;
+    		flag = false;
+    	}
+    }
+    else {
+    	testSensors.humidity -= 3;
+    	if (testSensors.humidity < 6) {
+    		testSensors.humidity = 30;
+    		flag = true;
+    	}
+    }
+
 }
 
 /*!
