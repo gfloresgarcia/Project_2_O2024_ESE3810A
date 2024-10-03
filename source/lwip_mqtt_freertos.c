@@ -73,12 +73,12 @@
 #define BOARD_LED2_GPIO_PIN   BOARD_LED_GREEN_GPIO_PIN
 #define BOARD_LED3_GPIO       BOARD_LED_BLUE_GPIO
 #define BOARD_LED3_GPIO_PIN   BOARD_LED_BLUE_GPIO_PIN
+
 #define BOARD_SW_GPIO        BOARD_SW3_GPIO
 #define BOARD_SW_GPIO_PIN    BOARD_SW3_GPIO_PIN
 #define BOARD_SW_PORT        BOARD_SW3_PORT
 #define BOARD_SW_IRQ         BOARD_SW3_IRQ
 #define BOARD_SW_IRQ_HANDLER BOARD_SW3_IRQ_HANDLER
-
 
 #ifndef EXAMPLE_NETIF_INIT_FN
 /*! @brief Network interface initialization function. */
@@ -147,6 +147,16 @@ volatile bool connected = false;
 /*******************************************************************************
  * Code
  ******************************************************************************/
+
+void BOARD_SW_IRQ_HANDLER(void)
+{
+    /* Clear external interrupt flag. */
+    GPIO_PortClearInterruptFlags(BOARD_SW_GPIO, 1U << BOARD_SW_GPIO_PIN);
+
+    /* Increment temperature value */
+    testSensors.temperature += 5;
+    if (testSensors.temperature > 80) testSensors.temperature = 20;
+}
 
 /*!
  * @brief Subscribe to MQTT topics.
@@ -352,6 +362,20 @@ static void stack_init(void *arg)
         .phyHandle  = &phyHandle,
         .macAddress = configMAC_ADDR,
     };
+
+    gpio_pin_config_t sw2_config = {
+        kGPIO_DigitalInput,
+        0,
+    };
+
+    gpio_pin_config_t sw_config = {
+        kGPIO_DigitalInput,
+        0,
+    };
+
+    PORT_SetPinInterruptConfig(BOARD_SW_PORT, BOARD_SW_GPIO_PIN, kPORT_InterruptFallingEdge);
+    EnableIRQ(BOARD_SW_IRQ);
+    GPIO_PinInit(BOARD_SW_GPIO, BOARD_SW_GPIO_PIN, &sw_config);
 
     LED_RED_INIT(0U);
     LED_GREEN_INIT(0U);

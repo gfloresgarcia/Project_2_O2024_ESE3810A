@@ -20,11 +20,11 @@ void mqtt_topic_subscribed_cb(void *arg, err_t err)
 
     if (err == ERR_OK)
     {
-        PRINTF("Subscribed to the topic \"%s\".\r\n", topic);
+        PRINTF("Subscribed to the topic '%s'", topic);
     }
     else
     {
-        PRINTF("Failed to subscribe to the topic \"%s\": %d.\r\n", topic, err);
+        PRINTF("Failed to subscribe to the topic '%s': %d", topic, err);
     }
 }
 
@@ -35,7 +35,7 @@ void mqtt_incoming_publish_cb(void *arg, const char *topic, u32_t tot_len)
 {
     LWIP_UNUSED_ARG(arg);
 
-    PRINTF("Received %u bytes from the topic \"%s\": \"", tot_len, topic);
+    //PRINTF("Received %u bytes from the topic \"%s\": \"", tot_len, topic);
 
     memset(topic_received, 0, sizeof(topic_received));
     strcpy(topic_received, topic);
@@ -83,21 +83,17 @@ void mqtt_incoming_data_cb(void *arg, const u8_t *data, u16_t len, u8_t flags)
 void setAlarm(bool state) {
 	if (state) {
 		PRINTF("ALARMA ACTIVADA");
-		LED_RED_ON();
 	}
 	else {
 		PRINTF("ALARMA DESACTIVADA");
-		LED_RED_OFF();
 	}
 }
 
 void setIrrigation(bool state) {
 	if (state) {
-		PRINTF("RIEGO ACTIVADO");
 		LED_RED_ON();
 	}
 	else {
-		PRINTF("RIEGO DESACTIVADO");
 		LED_RED_OFF();
 	}
 }

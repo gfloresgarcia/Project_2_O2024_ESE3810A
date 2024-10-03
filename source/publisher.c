@@ -15,7 +15,7 @@ extern volatile bool connected;
 sensors testSensors;
 
 void initial_Sensors(void) {
-	testSensors.temperature = 67;
+	testSensors.temperature = 17;
 	testSensors.humidity = 36;
 	testSensors.latitude = 12.4672;
 	testSensors.longitude = 18.6823;
@@ -62,7 +62,7 @@ void evaluate_variables(int temperature, int humidity, bool people){
 	char message[10] = {0};
 	int length = 0;
 
-	if (temperature > 50 || humidity < 15) {
+	if (temperature > 50 || humidity < 20) {
 		setIrrigation(true);
 		length = sprintf(message, "1");
 	}
@@ -102,7 +102,7 @@ void Task_Publisher(void *arg) {
 			err = tcpip_callback(publish_variable, NULL);
 		}
 
-		sys_msleep(10000U);
+		sys_msleep(2500U);
 	}
 }
 
